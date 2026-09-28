@@ -152,15 +152,23 @@ async function generateJavaScriptPackViaGemini(params: {
 }): Promise<GeneratedCommitItem[] | null> {
   const { apiKey, dayNumber, dateStr, commitsCount, customTopic } = params;
 
-  const prompt = `You are a Principal Software Engineer and author of "Mastering JavaScript from Scratch to Architecture".
-The student is practicing JavaScript every single day. Today is Day ${dayNumber} of their 180-day journey from absolute basics to advanced architectural mastery.
-${customTopic ? `Focus Topic: ${customTopic}` : `Design an in-depth lesson for Day ${dayNumber} of the JavaScript curriculum.`}
-Target Date: ${dateStr}.
+  const prompt = `You are a real software developer writing your daily personal JavaScript practice files.
+Today is Day ${dayNumber} of your journey learning JavaScript from scratch to mastery.
+${customTopic ? `Focus Topic: ${customTopic}` : `Topic: Day ${dayNumber} of JavaScript mastery.`}
+Date: ${dateStr}.
 
-Generate a 3-part daily coding practice package in modern JavaScript (with .js extension):
-- Part 1 (Core): Foundational concept, deep architectural comments, execution context, prototypes or syntax details.
-- Part 2 (Practical): Production-ready polyfill, real-world utility, design pattern, or practical exercise using the concept.
-- Part 3 (Tests): Self-contained unit tests using Node.js 'assert' module covering edge cases and verification.
+STRICT CODING STYLE GUIDELINES:
+- Write realistic, natural code just like an authentic developer practicing in their personal repo.
+- DO NOT use fancy JSDoc blocks (no /** ... */) or academic docstrings.
+- DO NOT write robotic textbook banners (NO "Problem: ...", NO "Approach: ...", NO "Time Complexity: ...").
+- Keep comments strictly limited and minimal: only brief 1-line comments (// ...) where really needed to clarify a step.
+- The code must NEVER look AI-generated or copy-pasted from an online tutorial.
+- Clean, readable, idiomatic JavaScript with natural variable and function names.
+
+Generate 3 files:
+1. 01-core.js: Core concept implementation.
+2. 02-practical.js: A real-world utility or pattern using the concept.
+3. 03-tests.js: Self-contained verification tests using Node assert or simple test cases.
 
 Respond strictly with valid JSON with this format:
 {
@@ -173,21 +181,21 @@ Respond strictly with valid JSON with this format:
     {
       "fileName": "01-core.js",
       "commitMessage": "feat(core): Day ${dayNumber} - ... [Part 1/3]",
-      "code": "// Full JavaScript source code with detailed JSDoc comments"
+      "code": "// clean natural JS code with limited 1-line comments"
     },
     {
       "fileName": "02-practical.js",
-      "commitMessage": "feat(implementation): Day ${dayNumber} - ... [Part 2/3]",
-      "code": "// Full JavaScript practical implementation and utility"
+      "commitMessage": "feat(practical): Day ${dayNumber} - ... [Part 2/3]",
+      "code": "// practical utility with limited 1-line comments"
     },
     {
       "fileName": "03-tests.js",
-      "commitMessage": "test(verification): Day ${dayNumber} - Assertions and Edge Cases [Part 3/3]",
-      "code": "// Self-contained Node.js assert tests"
+      "commitMessage": "test(verification): Day ${dayNumber} - Assertions [Part 3/3]",
+      "code": "// tests and assertions"
     }
   ]
 }
-Ensure the response is raw valid JSON with no markdown backticks or commentary outside the JSON.`;
+Ensure the response is raw valid JSON with no markdown backticks or extra text outside JSON.`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
