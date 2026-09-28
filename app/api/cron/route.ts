@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pushFileToGitHub, updateReadmeTracker } from '@/lib/github';
+import { pushFileToGitHub, updateReadmeTracker, generateRandomHumanTimestamps } from '@/lib/github';
 import { generateDailyJavaScriptPack } from '@/lib/generator';
 
 // Prevents caching of cron requests
@@ -54,14 +54,19 @@ export async function GET(request: NextRequest) {
     // 1. Generate 2 to 3 progressive JavaScript practice commits for today
     const pack = await generateDailyJavaScriptPack(commitsCount);
     const commitResults = [];
+    const timestamps = generateRandomHumanTimestamps(pack.length);
 
-    // 2. Push each commit incrementally
-    for (const item of pack) {
+    // 2. Push each commit with realistic human randomized timestamps
+    for (let i = 0; i < pack.length; i++) {
+      const item = pack[i];
+      const commitDate = timestamps[i];
+
       const pushResult = await pushFileToGitHub(
         config,
         item.filePath,
         item.fileContent,
-        item.commitMessage
+        item.commitMessage,
+        commitDate
       );
 
       if (pushResult.success) {
@@ -71,9 +76,15 @@ export async function GET(request: NextRequest) {
           filePath: item.filePath,
           commitSha: pushResult.commitSha,
           commitUrl: pushResult.commitUrl,
+          commitDate: commitDate,
         });
       } else {
         console.error(`Failed to push part ${item.partIndex}:`, pushResult.error);
+      }
+
+      // Small natural delay between network requests
+      if (i < pack.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 1000));
       }
     }
 

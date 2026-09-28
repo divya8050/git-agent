@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pushFileToGitHub, updateReadmeTracker } from '@/lib/github';
+import { pushFileToGitHub, updateReadmeTracker, generateRandomHumanTimestamps } from '@/lib/github';
 import { generateDailyJavaScriptPack } from '@/lib/generator';
 
 export const dynamic = 'force-dynamic';
@@ -39,14 +39,19 @@ export async function POST(request: NextRequest) {
     // 1. Generate multi-commit pack
     const pack = await generateDailyJavaScriptPack(commitsCount, customTopic);
     const commitResults = [];
+    const timestamps = generateRandomHumanTimestamps(pack.length);
 
-    // 2. Push each commit
-    for (const item of pack) {
+    // 2. Push each commit with natural randomized timestamps
+    for (let i = 0; i < pack.length; i++) {
+      const item = pack[i];
+      const commitDate = timestamps[i];
+
       const pushResult = await pushFileToGitHub(
         config,
         item.filePath,
         item.fileContent,
-        item.commitMessage
+        item.commitMessage,
+        commitDate
       );
 
       if (pushResult.success) {
@@ -56,8 +61,13 @@ export async function POST(request: NextRequest) {
           filePath: item.filePath,
           commitSha: pushResult.commitSha,
           commitUrl: pushResult.commitUrl,
+          commitDate: commitDate,
           previewCode: item.fileContent,
         });
+      }
+
+      if (i < pack.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 1000));
       }
     }
 

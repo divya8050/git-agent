@@ -142,7 +142,6 @@ export async function generateDailyJavaScriptPack(
  * Backward compatible single-file generator
  */
 export async function generateDailyPractice(
-  preferredLang: string = 'javascript',
   customTopic?: string
 ): Promise<GeneratedCodeResult> {
   const pack = await generateDailyJavaScriptPack(1, customTopic);

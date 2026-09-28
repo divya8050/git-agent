@@ -103,7 +103,8 @@ export async function pushFileToGitHub(
   config: GitHubConfig,
   filePath: string,
   fileContent: string,
-  commitMessage: string
+  commitMessage: string,
+  commitDate?: string
 ): Promise<PushResult> {
   const {
     token,
@@ -157,14 +158,23 @@ export async function pushFileToGitHub(
     // IMPORTANT: Providing author and committer with verified GitHub email ensures
     // the green streak square is credited on the user's profile!
     if (authorEmail) {
-      payload.committer = {
+      const committerObj: Record<string, string> = {
         name: authorName,
         email: authorEmail,
       };
-      payload.author = {
+      const authorObj: Record<string, string> = {
         name: authorName,
         email: authorEmail,
       };
+
+      // Set humanized randomized timestamp if provided
+      if (commitDate) {
+        committerObj.date = commitDate;
+        authorObj.date = commitDate;
+      }
+
+      payload.committer = committerObj;
+      payload.author = authorObj;
     }
 
     const putRes = await fetch(apiUrl, {
@@ -283,4 +293,37 @@ ${tableRow}
     // Non-blocking error for README update
     console.warn('Could not update README.md tracker:', err);
   }
+}
+
+/**
+ * Generates realistic, human-looking randomized timestamps for daily coding sessions.
+ * Randomizes the start time during the day and spaces each commit by 15-40 minutes,
+ * breaking any automated bot detection patterns on GitHub.
+ */
+export function generateRandomHumanTimestamps(count: number, baseDate: Date = new Date()): string[] {
+  const timestamps: string[] = [];
+  
+  // Pick a realistic random hour between 10:00 and 20:00 (10 AM to 8 PM)
+  const randomHour = Math.floor(Math.random() * 11) + 10;
+  const randomMinute = Math.floor(Math.random() * 50);
+  const randomSecond = Math.floor(Math.random() * 59);
+
+  let current = new Date(baseDate);
+  current.setHours(randomHour, randomMinute, randomSecond, 0);
+
+  // If the randomized time is ahead of current real time today, shift back a few hours
+  if (current.getTime() > Date.now()) {
+    const hoursBack = Math.floor(Math.random() * 3) + 2;
+    current = new Date(Date.now() - (hoursBack * 60 * 60 * 1000));
+  }
+
+  for (let i = 0; i < count; i++) {
+    timestamps.push(current.toISOString());
+    // Space next commit by 15 to 38 minutes + random seconds
+    const minutesDelta = Math.floor(Math.random() * 24) + 15;
+    const secondsDelta = Math.floor(Math.random() * 55) + 5;
+    current = new Date(current.getTime() + (minutesDelta * 60 * 1000) + (secondsDelta * 1000));
+  }
+
+  return timestamps;
 }
