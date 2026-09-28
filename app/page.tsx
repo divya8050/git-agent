@@ -16,21 +16,47 @@ import {
   Check,
   Flame,
   BookOpen,
+  Layers,
+  FileCode,
 } from 'lucide-react';
+
+interface PushItemResult {
+  track: string;
+  repo: string;
+  part: number;
+  topic: string;
+  filePath: string;
+  commitSha?: string;
+  commitUrl?: string;
+  commitDate?: string;
+}
 
 interface PushResponse {
   success: boolean;
+  message?: string;
+  date?: string;
+  totalCommits?: number;
+  results?: PushItemResult[];
   topic?: string;
   filePath?: string;
   commitSha?: string;
   commitUrl?: string;
-  difficulty?: string;
   error?: string;
+}
+
+interface TrackPreview {
+  repo: string;
+  stage: string;
+  topic: string;
+  category?: string;
+  difficulty?: string;
+  files: Record<string, string>;
 }
 
 interface SystemStatus {
   status: string;
   timestamp: string;
+  dayNumber?: number;
   environment: {
     hasToken: boolean;
     hasOwner: boolean;
@@ -40,8 +66,10 @@ interface SystemStatus {
     hasGeminiKey: boolean;
     owner: string | null;
     repo: string | null;
+    htmlCssRepo?: string | null;
     authorEmail: string | null;
-    preferredLang: string;
+    minCommits?: number;
+    maxCommits?: number;
   };
   github: {
     checked: boolean;
@@ -59,10 +87,9 @@ interface SystemStatus {
       private: boolean;
     };
   };
-  todayPreview: {
-    title: string;
-    category: string;
-    difficulty: string;
+  tracks?: {
+    javascript: TrackPreview;
+    htmlCss: TrackPreview;
   };
 }
 
@@ -74,10 +101,15 @@ export default function Dashboard() {
   const [pushError, setPushError] = useState<string | null>(null);
 
   // Trigger options
-  const [selectedLang, setSelectedLang] = useState<'typescript' | 'python'>('typescript');
+  const [selectedTrack, setSelectedTrack] = useState<'both' | 'js' | 'html'>('both');
   const [customTopic, setCustomTopic] = useState<string>('');
   const [copiedEnv, setCopiedEnv] = useState<boolean>(false);
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'setup' | 'preview'>('dashboard');
+
+  // Preview options
+  const [previewTrack, setPreviewTrack] = useState<'javascript' | 'htmlCss'>('javascript');
+  const [previewFileKey, setPreviewFileKey] = useState<string>('01-core.js');
 
   const fetchStatus = async () => {
     setLoadingStatus(true);
@@ -98,6 +130,15 @@ export default function Dashboard() {
     fetchStatus();
   }, []);
 
+  // Update preview file selection when switching tracks
+  useEffect(() => {
+    if (previewTrack === 'javascript') {
+      setPreviewFileKey('01-core.js');
+    } else {
+      setPreviewFileKey('index.html');
+    }
+  }, [previewTrack]);
+
   const handleManualPush = async () => {
     setPushing(true);
     setPushResult(null);
@@ -108,13 +149,13 @@ export default function Dashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          language: selectedLang,
+          track: selectedTrack,
           customTopic: customTopic.trim() || undefined,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!res.ok || (!data.success && !data.results)) {
         setPushError(data.error || 'Failed to push code.');
       } else {
         setPushResult(data);
@@ -130,16 +171,32 @@ export default function Dashboard() {
 
   const copyEnvSnippet = () => {
     const text = `GITHUB_TOKEN=ghp_yourTokenHere
-GITHUB_OWNER=your-github-username
-GITHUB_REPO=daily-code-practice
-GIT_AUTHOR_NAME="Your Name"
+GITHUB_OWNER=divya8050
+GITHUB_REPO=javascript
+HTML_CSS_REPO=html-css
+GIT_AUTHOR_NAME="Divya"
 GIT_AUTHOR_EMAIL="your-verified-github-email@example.com"
 CRON_SECRET=super_secret_cron_key_99
-PREFERRED_LANGUAGE=typescript`;
+MIN_COMMITS_PER_DAY=2
+MAX_COMMITS_PER_DAY=8`;
     navigator.clipboard.writeText(text);
     setCopiedEnv(true);
     setTimeout(() => setCopiedEnv(false), 2000);
   };
+
+  const copyActiveCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const owner = statusData?.environment.owner || 'divya8050';
+  const jsRepo = statusData?.environment.repo || 'javascript';
+  const htmlCssRepo = statusData?.environment.htmlCssRepo || 'html-css';
+  const currentDay = statusData?.dayNumber || 1;
+
+  const currentTrackData = statusData?.tracks?.[previewTrack];
+  const currentFileContent = currentTrackData?.files?.[previewFileKey] || '// Code loading...';
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-emerald-500 selection:text-black">
@@ -148,54 +205,54 @@ PREFERRED_LANGUAGE=typescript`;
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-9 w-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <GitCommit className="w-5 h-5 animate-pulse" />
+              <GitCommit className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-bold text-lg text-white">GitStreak</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
-                  Agent v1.0
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">Automated Daily GitHub Push & Practice Bot</p>
+              <span className="font-bold text-white tracking-wide text-base">GitStreak</span>
+              <span className="text-xs text-slate-400 ml-2 hidden sm:inline">
+                Dual Track &bull; {owner}/{jsRepo} &amp; {owner}/{htmlCssRepo}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                activeTab === 'dashboard'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                activeTab === 'preview'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              Today&apos;s Code
-            </button>
-            <button
-              onClick={() => setActiveTab('setup')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                activeTab === 'setup'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              Setup Guide
-            </button>
+          <div className="flex items-center space-x-3">
+            <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3 py-1 rounded-md transition-colors ${
+                  activeTab === 'dashboard'
+                    ? 'bg-emerald-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab('preview')}
+                className={`px-3 py-1 rounded-md transition-colors ${
+                  activeTab === 'preview'
+                    ? 'bg-emerald-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Today&apos;s Real Code
+              </button>
+              <button
+                onClick={() => setActiveTab('setup')}
+                className={`px-3 py-1 rounded-md transition-colors ${
+                  activeTab === 'setup'
+                    ? 'bg-emerald-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Vercel Setup
+              </button>
+            </div>
+
             <button
               onClick={fetchStatus}
-              title="Refresh connection status"
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-2"
+              title="Refresh status"
+              className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-750 text-slate-300 transition-colors border border-slate-700"
             >
               <RefreshCw className={`w-4 h-4 ${loadingStatus ? 'animate-spin' : ''}`} />
             </button>
@@ -212,78 +269,83 @@ PREFERRED_LANGUAGE=typescript`;
             <div className="space-y-2">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
                 <Flame className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
-                <span>Never Break Your Daily Streak Again</span>
+                <span>180-Day Dual Learning Streak Active</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-                Daily GitHub Practice & Streak Automation
+                Automated GitHub Daily Practice
               </h1>
               <p className="text-slate-400 text-sm max-w-2xl">
-                Deployed serverless on Vercel. Pushes a clean software engineering problem solution,
-                algorithm, or system design implementation every day to your GitHub repository with
-                proper commit attribution.
+                Parallel learning across JavaScript and HTML5/CSS with randomized schedules (2 to 8 commits/day)
+                spaced realistically throughout daytime and evening sessions.
               </p>
             </div>
 
             <div className="flex items-center space-x-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 backdrop-blur-sm self-start md:self-auto">
               <div className="text-center px-3">
                 <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">
-                  Schedule
+                  Curriculum Day
                 </span>
                 <div className="text-emerald-400 font-bold text-lg flex items-center justify-center space-x-1">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  <span>10:00 UTC</span>
+                  <span>Day {currentDay}</span>
                 </div>
-                <span className="text-[11px] text-slate-500">Every 24 Hours</span>
+                <span className="text-[11px] text-slate-500">of 180 Days</span>
               </div>
               <div className="h-8 w-px bg-slate-800" />
               <div className="text-center px-3">
                 <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">
-                  Streak Mode
+                  Daily Volume
                 </span>
                 <div className="text-emerald-400 font-bold text-lg flex items-center justify-center space-x-1">
-                  <CheckCircle2 className="w-4 h-4 inline mr-1" />
-                  <span>Active</span>
+                  <span>2 &ndash; 8</span>
                 </div>
-                <span className="text-[11px] text-slate-500">Attributed to Author</span>
+                <span className="text-[11px] text-slate-500">Commits / Day</span>
+              </div>
+              <div className="h-8 w-px bg-slate-800" />
+              <div className="text-center px-3">
+                <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">
+                  Cron Times
+                </span>
+                <div className="text-emerald-400 font-bold text-lg flex items-center justify-center space-x-1">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  <span>Random</span>
+                </div>
+                <span className="text-[11px] text-slate-500">Day &amp; Evening</span>
               </div>
             </div>
           </div>
 
-          {/* Simulated 52-Week GitHub Contribution Matrix */}
+          {/* Real GitHub Contribution Matrix Embed */}
           <div className="mt-8 pt-6 border-t border-slate-800/80">
             <div className="flex items-center justify-between mb-3 text-xs text-slate-400">
-              <span className="font-medium text-slate-300">GitHub Streak Matrix Visualization</span>
-              <div className="flex items-center space-x-1 text-[11px]">
-                <span>Less</span>
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-slate-800 inline-block"></span>
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-900 inline-block"></span>
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-700 inline-block"></span>
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-500 inline-block"></span>
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-400 inline-block"></span>
-                <span>More</span>
+              <div className="flex items-center space-x-2">
+                <span className="font-medium text-slate-300">Live GitHub Streak:</span>
+                <a
+                  href={`https://github.com/${owner}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-emerald-400 hover:underline flex items-center space-x-1 font-mono text-[11px]"
+                >
+                  <span>github.com/{owner}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
+              <span className="text-[11px] text-slate-500">Updated in real-time from GitHub</span>
             </div>
-            <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-800">
-              <div className="grid grid-rows-7 grid-flow-col gap-1 w-max">
-                {Array.from({ length: 364 }).map((_, i) => {
-                  // Simulate an active green streak towards recent days
-                  const isRecent = i > 250;
-                  const intensity = isRecent
-                    ? (i % 3 === 0 ? 'bg-emerald-400' : i % 2 === 0 ? 'bg-emerald-500' : 'bg-emerald-600')
-                    : i % 4 === 0
-                    ? 'bg-emerald-800'
-                    : i % 7 === 0
-                    ? 'bg-emerald-900'
-                    : 'bg-slate-800/80';
-                  return (
-                    <div
-                      key={i}
-                      className={`w-2.5 h-2.5 rounded-[2px] ${intensity} transition-transform hover:scale-125 hover:ring-1 hover:ring-white/50 cursor-pointer`}
-                      title={`Day ${i + 1}: Practice Commit Registered`}
-                    />
-                  );
-                })}
-              </div>
+
+            <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-800 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 flex items-center justify-center min-h-[110px]">
+              {/* Live GitHub contribution graph from rshah.org */}
+              <a href={`https://github.com/${owner}`} target="_blank" rel="noreferrer" className="block max-w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://ghchart.rshah.org/22c55e/${owner}`}
+                  alt={`${owner}'s GitHub Contributions`}
+                  className="max-w-full h-auto filter contrast-125"
+                  onError={(e) => {
+                    // Fallback to text link if image server is unreachable
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </a>
             </div>
           </div>
         </div>
@@ -291,7 +353,7 @@ PREFERRED_LANGUAGE=typescript`;
         {/* Tab 1: Main Dashboard */}
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left 2 Cols: Manual Push & Today's Topic */}
+            {/* Left 2 Cols: Manual Push & Today's Curriculum Snapshot */}
             <div className="lg:col-span-2 space-y-6">
               {/* Trigger Card */}
               <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-6 space-y-5">
@@ -303,7 +365,7 @@ PREFERRED_LANGUAGE=typescript`;
                     <div>
                       <h2 className="font-semibold text-white text-base">Trigger Daily Practice Push</h2>
                       <p className="text-xs text-slate-400">
-                        Pushes immediately or test your credentials right now.
+                        Manually trigger commits right now to verify credentials or push today&apos;s pack.
                       </p>
                     </div>
                   </div>
@@ -315,41 +377,52 @@ PREFERRED_LANGUAGE=typescript`;
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                      Programming Language
+                      Target Learning Track
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
-                        onClick={() => setSelectedLang('typescript')}
-                        className={`px-3 py-2 text-xs font-semibold rounded-lg border text-center transition-all ${
-                          selectedLang === 'typescript'
-                            ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-sm'
+                        onClick={() => setSelectedTrack('both')}
+                        className={`px-2 py-2 text-xs font-semibold rounded-lg border text-center transition-all ${
+                          selectedTrack === 'both'
+                            ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-sm'
                             : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white'
                         }`}
                       >
-                        TypeScript (.ts)
+                        Both Tracks
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSelectedLang('python')}
-                        className={`px-3 py-2 text-xs font-semibold rounded-lg border text-center transition-all ${
-                          selectedLang === 'python'
+                        onClick={() => setSelectedTrack('js')}
+                        className={`px-2 py-2 text-xs font-semibold rounded-lg border text-center transition-all ${
+                          selectedTrack === 'js'
                             ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-sm'
                             : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white'
                         }`}
                       >
-                        Python (.py)
+                        JavaScript
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTrack('html')}
+                        className={`px-2 py-2 text-xs font-semibold rounded-lg border text-center transition-all ${
+                          selectedTrack === 'html'
+                            ? 'bg-sky-600/20 border-sky-500 text-sky-400 shadow-sm'
+                            : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        HTML &amp; CSS
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                      Custom Topic (Optional)
+                      Custom Topic (Optional Override)
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Red-Black Tree, LRU Cache, Sliding Window"
+                      placeholder="e.g. Promises, Flexbox, Closures"
                       value={customTopic}
                       onChange={(e) => setCustomTopic(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -371,16 +444,19 @@ PREFERRED_LANGUAGE=typescript`;
                     ) : (
                       <>
                         <GitCommit className="w-4 h-4" />
-                        <span>Push Code to GitHub Now</span>
+                        <span>Push Practice Commits Now</span>
                       </>
                     )}
                   </button>
 
                   <span className="text-[11px] text-slate-400">
-                    Will commit to:{' '}
+                    Pushing to:{' '}
                     <code className="text-emerald-400">
-                      {statusData?.environment.owner || 'owner'}/
-                      {statusData?.environment.repo || 'repo'}
+                      {selectedTrack === 'both'
+                        ? `${owner}/${jsRepo} & ${owner}/${htmlCssRepo}`
+                        : selectedTrack === 'js'
+                        ? `${owner}/${jsRepo}`
+                        : `${owner}/${htmlCssRepo}`}
                     </code>
                   </span>
                 </div>
@@ -398,7 +474,7 @@ PREFERRED_LANGUAGE=typescript`;
 
                 {/* Success Banner */}
                 {pushResult && (
-                  <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs space-y-2">
+                  <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -407,73 +483,123 @@ PREFERRED_LANGUAGE=typescript`;
                         </span>
                       </div>
                       <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-emerald-500/20 rounded">
-                        {pushResult.difficulty}
+                        {pushResult.totalCommits || (pushResult.results ? pushResult.results.length : 1)} Commits
                       </span>
                     </div>
 
-                    <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800 font-mono text-[11px] space-y-1">
-                      <p>
-                        <span className="text-slate-500">Topic:</span>{' '}
-                        <span className="text-slate-200">{pushResult.topic}</span>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">File:</span>{' '}
-                        <span className="text-emerald-400">{pushResult.filePath}</span>
-                      </p>
-                      {pushResult.commitSha && (
+                    {pushResult.results && pushResult.results.length > 0 ? (
+                      <div className="space-y-2">
+                        {pushResult.results.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-slate-950/80 p-3 rounded-lg border border-slate-800 font-mono text-[11px] space-y-1"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400">
+                                [{item.track.toUpperCase()}] {owner}/{item.repo}
+                              </span>
+                              {item.commitUrl && (
+                                <a
+                                  href={item.commitUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-emerald-400 hover:text-emerald-300 flex items-center space-x-1"
+                                >
+                                  <span>View Commit</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-slate-300">{item.filePath}</p>
+                            {item.commitSha && (
+                              <p className="text-slate-500 text-[10px]">
+                                SHA: {item.commitSha.slice(0, 7)} &bull; {item.commitDate}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800 font-mono text-[11px] space-y-1">
                         <p>
-                          <span className="text-slate-500">Commit SHA:</span>{' '}
-                          <span className="text-slate-300">{pushResult.commitSha.slice(0, 7)}</span>
+                          <span className="text-slate-500">Topic:</span>{' '}
+                          <span className="text-slate-200">{pushResult.topic}</span>
                         </p>
-                      )}
-                    </div>
-
-                    {pushResult.commitUrl && (
-                      <a
-                        href={pushResult.commitUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center space-x-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium underline"
-                      >
-                        <span>View Commit on GitHub</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                        <p>
+                          <span className="text-slate-500">File:</span>{' '}
+                          <span className="text-emerald-400">{pushResult.filePath}</span>
+                        </p>
+                        {pushResult.commitUrl && (
+                          <a
+                            href={pushResult.commitUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center space-x-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium underline mt-1"
+                          >
+                            <span>View Commit on GitHub</span>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Today's Curriculum Snapshot */}
+              {/* Today's Dual Curriculum Snapshot */}
               <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Code2 className="w-4 h-4 text-emerald-400" />
-                    <h3 className="font-semibold text-white text-sm">Today&apos;s Scheduled Problem</h3>
+                    <h3 className="font-semibold text-white text-sm">Today&apos;s Dual Curriculum Snapshot</h3>
                   </div>
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                    Day #{Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24))} of {new Date().getFullYear()}
+                    Day #{currentDay} of 180
                   </span>
                 </div>
 
-                <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800/80 space-y-2">
-                  <div className="flex items-center justify-between">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* JS Card */}
+                  <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-amber-400 font-mono">
+                        Track 1: JavaScript
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                        {statusData?.tracks?.javascript?.difficulty || 'Beginner'}
+                      </span>
+                    </div>
                     <h4 className="text-sm font-bold text-white">
-                      {statusData?.todayPreview.title || 'Two Sum with Optimal Hash Map'}
+                      {statusData?.tracks?.javascript?.topic || 'Execution Context and Scope'}
                     </h4>
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                      {statusData?.todayPreview.difficulty || 'Easy'}
-                    </span>
+                    <p className="text-xs text-slate-400">
+                      Repo: <code className="text-slate-300">{owner}/{jsRepo}</code>
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Files: <code className="text-slate-400">01-core.js</code>, <code className="text-slate-400">02-practical.js</code>, <code className="text-slate-400">03-tests.js</code>
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Category:{' '}
-                    <span className="text-slate-300">
-                      {statusData?.todayPreview.category || 'Algorithms'}
-                    </span>
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    The agent commits self-contained code with comprehensive type hints, edge case
-                    handling, complexity analysis, and verification tests.
-                  </p>
+
+                  {/* HTML/CSS Card */}
+                  <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400 font-mono">
+                        Track 2: HTML5 &amp; CSS
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">
+                        Foundations
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-white">
+                      {statusData?.tracks?.htmlCss?.topic || 'Semantic HTML5 Document Structure'}
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Repo: <code className="text-slate-300">{owner}/{htmlCssRepo}</code>
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Files: <code className="text-slate-400">index.html</code>, <code className="text-slate-400">styles.css</code>
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -484,7 +610,7 @@ PREFERRED_LANGUAGE=typescript`;
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <h3 className="font-semibold text-white text-sm">Deployment & Env Status</h3>
+                    <h3 className="font-semibold text-white text-sm">Deployment &amp; Env Status</h3>
                   </div>
                   <span className="text-[10px] text-slate-500 font-mono">Vercel Serverless</span>
                 </div>
@@ -506,22 +632,23 @@ PREFERRED_LANGUAGE=typescript`;
                     )}
                   </div>
 
-                  {/* GITHUB_OWNER & REPO */}
+                  {/* JavaScript Repo */}
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
-                    <span className="text-slate-300 font-mono">TARGET_REPO</span>
-                    {statusData?.environment.hasOwner && statusData?.environment.hasRepo ? (
-                      <span className="text-slate-300 font-mono">
-                        {statusData.environment.owner}/{statusData.environment.repo}
-                      </span>
-                    ) : (
-                      <span className="flex items-center space-x-1 text-rose-400">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Not Set</span>
-                      </span>
-                    )}
+                    <span className="text-slate-300 font-mono">JS_REPO</span>
+                    <span className="text-amber-400 font-mono">
+                      {owner}/{jsRepo}
+                    </span>
                   </div>
 
-                  {/* GIT_AUTHOR_EMAIL (Streak Critical) */}
+                  {/* HTML/CSS Repo */}
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+                    <span className="text-slate-300 font-mono">HTML_CSS_REPO</span>
+                    <span className="text-sky-400 font-mono">
+                      {owner}/{htmlCssRepo}
+                    </span>
+                  </div>
+
+                  {/* GIT_AUTHOR_EMAIL */}
                   <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-300 font-mono">GIT_AUTHOR_EMAIL</span>
@@ -538,33 +665,28 @@ PREFERRED_LANGUAGE=typescript`;
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Must match your verified GitHub email for commits to count towards your green streak.
+                      Attribution verified for your GitHub account green streak.
                     </p>
                   </div>
 
-                  {/* CRON_SECRET */}
+                  {/* Schedule & Commits */}
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
-                    <span className="text-slate-300 font-mono">CRON_SECRET</span>
-                    {statusData?.environment.hasCronSecret ? (
-                      <span className="flex items-center space-x-1 text-emerald-400">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Secured</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-500">Optional</span>
-                    )}
+                    <span className="text-slate-300 font-mono">DAILY_COMMITS</span>
+                    <span className="text-emerald-400 font-mono">
+                      {statusData?.environment.minCommits || 2} to {statusData?.environment.maxCommits || 8} (Randomized)
+                    </span>
                   </div>
 
-                  {/* GEMINI_API_KEY */}
+                  {/* AI Generator */}
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
                     <div className="flex items-center space-x-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-slate-300 font-mono">AI Generator</span>
                     </div>
                     {statusData?.environment.hasGeminiKey ? (
-                      <span className="text-emerald-400">Gemini 1.5</span>
+                      <span className="text-emerald-400">Gemini 2.5 Flash</span>
                     ) : (
-                      <span className="text-slate-400">Curriculum (Built-in)</span>
+                      <span className="text-slate-400">180-Day Built-in Roadmap</span>
                     )}
                   </div>
                 </div>
@@ -575,7 +697,7 @@ PREFERRED_LANGUAGE=typescript`;
                     {statusData.github.valid ? (
                       <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20 text-xs text-emerald-300 flex items-center space-x-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                        <span>Connected to @{statusData.github.user?.login}&apos;s repository!</span>
+                        <span>Connected to @{statusData.github.user?.login}&apos;s GitHub account!</span>
                       </div>
                     ) : (
                       <div className="p-3 bg-rose-500/10 rounded-lg border border-rose-500/20 text-xs text-rose-300 flex items-start space-x-2">
@@ -598,101 +720,108 @@ PREFERRED_LANGUAGE=typescript`;
                   <code className="text-emerald-400">vercel.json</code>.
                 </p>
                 <div className="bg-slate-950 p-2.5 rounded font-mono text-[11px] text-slate-300 border border-slate-800">
-                  Schedule: &quot;0 10 * * *&quot; (10:00 AM UTC)
+                  Schedule: &quot;0 10 * * *&quot; (10:00 AM UTC Daily)
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Tab 2: Code Preview */}
+        {/* Tab 2: Code Preview (Real Code for Today) */}
         {activeTab === 'preview' && (
-          <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                   <BookOpen className="w-5 h-5 text-emerald-400" />
-                  <span>Curriculum Code Preview</span>
+                  <span>Today&apos;s Real Practice Code (Day #{currentDay})</span>
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Real algorithmic solutions and system designs queued for your daily streak.
+                  Real code generated for your dual tracks with natural 1-line comments.
                 </p>
               </div>
+
+              {/* Track Selector */}
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setSelectedLang('typescript')}
-                  className={`px-3 py-1 text-xs rounded font-medium ${
-                    selectedLang === 'typescript'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-800 text-slate-400'
+                  onClick={() => setPreviewTrack('javascript')}
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium flex items-center space-x-1.5 transition-colors ${
+                    previewTrack === 'javascript'
+                      ? 'bg-amber-600 text-white font-bold'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  TypeScript
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>JavaScript ({owner}/{jsRepo})</span>
                 </button>
                 <button
-                  onClick={() => setSelectedLang('python')}
-                  className={`px-3 py-1 text-xs rounded font-medium ${
-                    selectedLang === 'python'
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-slate-800 text-slate-400'
+                  onClick={() => setPreviewTrack('htmlCss')}
+                  className={`px-3 py-1.5 text-xs rounded-lg font-medium flex items-center space-x-1.5 transition-colors ${
+                    previewTrack === 'htmlCss'
+                      ? 'bg-sky-600 text-white font-bold'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  Python
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>HTML &amp; CSS ({owner}/{htmlCssRepo})</span>
                 </button>
               </div>
             </div>
 
-            <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 font-mono text-xs overflow-x-auto text-slate-300 leading-relaxed">
-              <div className="text-emerald-400 text-xs mb-2">
-                {"// Sample Daily Practice File (Saved to daily-practice/YYYY/MM/...)"}
+            {/* Sub-Header & File Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-emerald-400">
+                  {currentTrackData?.stage}
+                </span>
+                <h3 className="text-sm font-bold text-white">
+                  {currentTrackData?.topic}
+                </h3>
               </div>
-              {selectedLang === 'typescript' ? (
-                <code>{`/**
- * Problem: Two Sum with Optimal Hash Map
- * Time Complexity: O(n)
- * Space Complexity: O(n)
- */
 
-export function twoSum(nums: number[], target: number): [number, number] | null {
-  const seen = new Map<number, number>();
+              {/* File switcher buttons */}
+              <div className="flex items-center space-x-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                {currentTrackData?.files &&
+                  Object.keys(currentTrackData.files).map((fileName) => (
+                    <button
+                      key={fileName}
+                      onClick={() => setPreviewFileKey(fileName)}
+                      className={`px-2.5 py-1 text-xs rounded font-mono flex items-center space-x-1 transition-colors ${
+                        previewFileKey === fileName
+                          ? 'bg-slate-800 text-emerald-400 font-semibold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <FileCode className="w-3 h-3" />
+                      <span>{fileName}</span>
+                    </button>
+                  ))}
 
-  for (let i = 0; i < nums.length; i++) {
-    const complement = target - nums[i];
-    if (seen.has(complement)) {
-      return [seen.get(complement)!, i];
-    }
-    seen.set(nums[i], i);
-  }
+                <button
+                  onClick={() => copyActiveCode(currentFileContent)}
+                  title="Copy code to clipboard"
+                  className="px-2 py-1 text-xs rounded bg-slate-850 hover:bg-slate-800 text-slate-300 flex items-center space-x-1 ml-2 transition-colors border border-slate-700/60"
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      <span className="text-[10px]">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span className="text-[10px]">Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
 
-  return null;
-}
-
-// Verification Tests
-const result = twoSum([2, 7, 11, 15], 9);
-console.assert(result && result[0] === 0 && result[1] === 1, 'Test passed!');`}</code>
-              ) : (
-                <code>{`"""
-Problem: Two Sum with Optimal Hash Map
-Time Complexity: O(n)
-Space Complexity: O(n)
-"""
-
-from typing import List, Optional, Tuple
-
-def two_sum(nums: List[int], target: int) -> Optional[Tuple[int, int]]:
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            return (seen[complement], i)
-        seen[num] = i
-    return None
-
-if __name__ == "__main__":
-    result = two_sum([2, 7, 11, 15], 9)
-    assert result == (0, 1), "Test passed"
-    print("Verification passed successfully!")`}</code>
-              )}
+            {/* Code Box */}
+            <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 font-mono text-xs overflow-x-auto text-slate-300 leading-relaxed shadow-inner">
+              <pre className="font-mono">
+                <code>{currentFileContent}</code>
+              </pre>
             </div>
           </div>
         )}
@@ -714,10 +843,26 @@ if __name__ == "__main__":
                   1
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-white">Create a Practice Repository on GitHub</h3>
+                  <h3 className="text-sm font-semibold text-white">Practice Repositories on GitHub</h3>
                   <p className="text-xs text-slate-400">
-                    Go to GitHub and create a new repository (e.g.{' '}
-                    <code className="text-emerald-400">daily-code-practice</code>). It can be either public or private.
+                    You already have both repositories configured on GitHub:{' '}
+                    <a
+                      href="https://github.com/divya8050/javascript"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-emerald-400 underline"
+                    >
+                      divya8050/javascript
+                    </a>{' '}
+                    and{' '}
+                    <a
+                      href="https://github.com/divya8050/html-css"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-emerald-400 underline"
+                    >
+                      divya8050/html-css
+                    </a>.
                   </p>
                 </div>
               </div>
@@ -728,7 +873,7 @@ if __name__ == "__main__":
                   2
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-white">Generate GitHub Personal Access Token (PAT)</h3>
+                  <h3 className="text-sm font-semibold text-white">GitHub Personal Access Token (PAT)</h3>
                   <p className="text-xs text-slate-400">
                     Visit{' '}
                     <a
@@ -739,7 +884,7 @@ if __name__ == "__main__":
                     >
                       github.com/settings/tokens
                     </a>{' '}
-                    and generate a token with the <code className="text-emerald-400">repo</code> scope (or Fine-Grained token with &quot;Contents: Read and Write&quot;).
+                    and generate a classic token with the <code className="text-emerald-400">repo</code> scope.
                   </p>
                 </div>
               </div>
@@ -751,7 +896,7 @@ if __name__ == "__main__":
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-amber-300">
-                    CRITICAL: Get your verified GitHub Email for the Green Streak
+                    Verified GitHub Email for Green Streak
                   </h3>
                   <p className="text-xs text-slate-400">
                     GitHub will ONLY count commits towards your green streak if the author email matches your GitHub account. Check{' '}
@@ -763,7 +908,7 @@ if __name__ == "__main__":
                     >
                       github.com/settings/emails
                     </a>{' '}
-                    and copy your primary or noreply email address.
+                    and copy your primary or noreply email address into <code className="text-amber-400">GIT_AUTHOR_EMAIL</code>.
                   </p>
                 </div>
               </div>
@@ -774,21 +919,24 @@ if __name__ == "__main__":
                   4
                 </div>
                 <div className="space-y-3 w-full">
-                  <h3 className="text-sm font-semibold text-white">Deploy to Vercel & Add Environment Variables</h3>
+                  <h3 className="text-sm font-semibold text-white">Deploy to Vercel &amp; Add Environment Variables</h3>
                   <p className="text-xs text-slate-400">
-                    Deploy this project to Vercel (via GitHub repo import or <code className="text-emerald-400">vercel deploy</code>).
-                    In your Vercel Project Settings &gt; Environment Variables, add the following:
+                    Deploy this project (<code className="text-emerald-400">divya8050/git-agent</code>) to Vercel.
+                    In your Vercel Project Settings &gt; Environment Variables, paste the following:
                   </p>
 
                   <div className="relative">
                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 space-y-1">
                       <p><span className="text-emerald-400">GITHUB_TOKEN</span>=ghp_yourPersonalAccessToken</p>
-                      <p><span className="text-emerald-400">GITHUB_OWNER</span>=your-github-username</p>
-                      <p><span className="text-emerald-400">GITHUB_REPO</span>=daily-code-practice</p>
-                      <p><span className="text-emerald-400">GIT_AUTHOR_NAME</span>=&quot;Your Name&quot;</p>
-                      <p><span className="text-amber-400">GIT_AUTHOR_EMAIL</span>=&quot;your-github-email@example.com&quot;</p>
-                      <p><span className="text-slate-400">CRON_SECRET</span>=random_secret_string</p>
-                      <p><span className="text-slate-400">PREFERRED_LANGUAGE</span>=typescript</p>
+                      <p><span className="text-emerald-400">GITHUB_OWNER</span>=divya8050</p>
+                      <p><span className="text-emerald-400">GITHUB_REPO</span>=javascript</p>
+                      <p><span className="text-emerald-400">HTML_CSS_REPO</span>=html-css</p>
+                      <p><span className="text-emerald-400">GIT_AUTHOR_NAME</span>=&quot;Divya&quot;</p>
+                      <p><span className="text-amber-400">GIT_AUTHOR_EMAIL</span>=&quot;your-verified-github-email@example.com&quot;</p>
+                      <p><span className="text-slate-400">CRON_SECRET</span>=super_secret_cron_key_99</p>
+                      <p><span className="text-slate-400">MIN_COMMITS_PER_DAY</span>=2</p>
+                      <p><span className="text-slate-400">MAX_COMMITS_PER_DAY</span>=8</p>
+                      <p><span className="text-slate-400">GEMINI_API_KEY</span>=your_gemini_api_key</p>
                     </div>
 
                     <button
@@ -810,7 +958,7 @@ if __name__ == "__main__":
                   </div>
 
                   <p className="text-xs text-slate-400">
-                    Once deployed, Vercel will automatically run <code className="text-emerald-400">/api/cron</code> every day at 10:00 UTC, pushing daily practice solutions to your repo and keeping your streak green forever!
+                    Once deployed, Vercel will automatically run <code className="text-emerald-400">/api/cron</code> every day at 10:00 UTC, pushing daily practice solutions to both repositories and keeping your streak green forever!
                   </p>
                 </div>
               </div>
@@ -821,7 +969,7 @@ if __name__ == "__main__":
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 mt-12 py-6 text-center text-xs text-slate-500">
-        <p>GitStreak Agent &bull; Fully Serverless on Vercel &bull; Never miss a daily commit</p>
+        <p>GitStreak Agent &bull; Dual Track JavaScript &amp; HTML/CSS &bull; Never miss a daily commit</p>
       </footer>
     </div>
   );
