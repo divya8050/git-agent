@@ -241,10 +241,22 @@ Ensure the response is raw valid JSON with no markdown backticks or extra text o
   }
 
   const data = await res.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) return null;
+  const safeParseJSON = (str: string) => {
+    try {
+      return JSON.parse(str.trim());
+    } catch {
+      const stripped = str.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      try {
+        return JSON.parse(stripped);
+      } catch {
+        // Fix common unescaped backslashes in code blocks
+        const sanitized = stripped.replace(/(?<!\\)\\(?!["\\/bfnrtu])/g, '\\\\');
+        return JSON.parse(sanitized);
+      }
+    }
+  };
 
-  const parsed = JSON.parse(rawText.trim());
+  const parsed = safeParseJSON(rawText);
   const folderPath = `javascript-mastery/${parsed.folder || '01-fundamentals'}/day-${String(dayNumber).padStart(2, '0')}-${parsed.slug || 'practice'}`;
 
   interface GeminiFileItem {
