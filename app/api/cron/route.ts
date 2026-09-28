@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    const secretQuery = request.nextUrl.searchParams.get('secret');
+    const urlObj = request.nextUrl || new URL(request.url, 'http://localhost');
+    const secretQuery = urlObj.searchParams.get('secret');
     const expectedSecret = process.env.CRON_SECRET;
 
     if (expectedSecret) {
