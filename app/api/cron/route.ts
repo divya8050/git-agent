@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pushFileToGitHub, updateReadmeTracker, generateRandomHumanTimestamps } from '@/lib/github';
 import { generateDailyJavaScriptPack } from '@/lib/generator';
+import { generateDailyHtmlCssPack } from '@/lib/html-css-generator';
 
-// Prevents caching of cron requests
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
     const secretQuery = request.nextUrl.searchParams.get('secret');
     const expectedSecret = process.env.CRON_SECRET;
 
-    // If CRON_SECRET is configured, enforce security
     if (expectedSecret) {
       const isBearerValid = authHeader === `Bearer ${expectedSecret}`;
       const isQueryValid = secretQuery === expectedSecret;
@@ -27,6 +26,7 @@ export async function GET(request: NextRequest) {
     const token = process.env.GITHUB_TOKEN;
     const owner = process.env.GITHUB_OWNER;
     const repo = process.env.GITHUB_REPO;
+    const htmlCssRepo = process.env.HTML_CSS_REPO || 'html-css';
     const branch = process.env.GITHUB_BRANCH || 'main';
     const authorName = process.env.GIT_AUTHOR_NAME || 'Daily Practice Agent';
     const authorEmail = process.env.GIT_AUTHOR_EMAIL;
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const config = {
+    const jsConfig = {
       token,
       owner,
       repo,
@@ -51,18 +51,21 @@ export async function GET(request: NextRequest) {
       authorEmail,
     };
 
-    // 1. Generate 2 to 3 progressive JavaScript practice commits for today
-    const pack = await generateDailyJavaScriptPack(commitsCount);
-    const commitResults = [];
-    const timestamps = generateRandomHumanTimestamps(pack.length);
+    const today = new Date().toISOString().split('T')[0];
 
-    // 2. Push each commit with realistic human randomized timestamps
-    for (let i = 0; i < pack.length; i++) {
-      const item = pack[i];
-      const commitDate = timestamps[i];
+    // =========================================================================
+    // 1. TRACK 1: JAVASCRIPT MASTERY (Day Session Timestamps)
+    // =========================================================================
+    const jsPack = await generateDailyJavaScriptPack(commitsCount);
+    const jsCommitResults = [];
+    const jsTimestamps = generateRandomHumanTimestamps(jsPack.length, new Date(), 'day');
+
+    for (let i = 0; i < jsPack.length; i++) {
+      const item = jsPack[i];
+      const commitDate = jsTimestamps[i];
 
       const pushResult = await pushFileToGitHub(
-        config,
+        jsConfig,
         item.filePath,
         item.fileContent,
         item.commitMessage,
@@ -70,7 +73,8 @@ export async function GET(request: NextRequest) {
       );
 
       if (pushResult.success) {
-        commitResults.push({
+        jsCommitResults.push({
+          repo: repo,
           part: item.partIndex,
           topic: item.topicTitle,
           filePath: item.filePath,
@@ -78,49 +82,98 @@ export async function GET(request: NextRequest) {
           commitUrl: pushResult.commitUrl,
           commitDate: commitDate,
         });
-      } else {
-        console.error(`Failed to push part ${item.partIndex}:`, pushResult.error);
       }
 
-      // Small natural delay between network requests
-      if (i < pack.length - 1) {
+      if (i < jsPack.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 1000));
       }
     }
 
-    if (commitResults.length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to push any practice commits to GitHub repository.' },
-        { status: 502 }
-      );
+    if (jsCommitResults.length > 0) {
+      const mainItem = jsPack[0];
+      await updateReadmeTracker(jsConfig, {
+        date: today,
+        title: mainItem.topicTitle.replace(' (Part 1: Core Concept)', '').replace(' (Part 1)', ''),
+        language: 'JavaScript',
+        difficulty: mainItem.difficulty,
+        filePath: mainItem.filePath,
+        commitUrl: jsCommitResults[0].commitUrl,
+      });
     }
 
-    // 3. Update README streak table
-    const today = new Date().toISOString().split('T')[0];
-    const mainItem = pack[0];
-    await updateReadmeTracker(config, {
-      date: today,
-      title: mainItem.topicTitle.replace(' (Part 1: Core Concept)', '').replace(' (Part 1)', ''),
-      language: 'JavaScript',
-      difficulty: mainItem.difficulty,
-      filePath: mainItem.filePath,
-      commitUrl: commitResults[0].commitUrl,
-    });
+    // =========================================================================
+    // 2. TRACK 2: HTML & CSS MASTERY (Evening Session Timestamps)
+    // =========================================================================
+    const htmlCommitResults = [];
+    if (htmlCssRepo) {
+      const htmlConfig = {
+        token,
+        owner,
+        repo: htmlCssRepo,
+        branch,
+        authorName,
+        authorEmail,
+      };
+
+      const htmlPack = await generateDailyHtmlCssPack();
+      const htmlTimestamps = generateRandomHumanTimestamps(htmlPack.length, new Date(), 'evening');
+
+      for (let i = 0; i < htmlPack.length; i++) {
+        const item = htmlPack[i];
+        const commitDate = htmlTimestamps[i];
+
+        const pushResult = await pushFileToGitHub(
+          htmlConfig,
+          item.filePath,
+          item.fileContent,
+          item.commitMessage,
+          commitDate
+        );
+
+        if (pushResult.success) {
+          htmlCommitResults.push({
+            repo: htmlCssRepo,
+            part: item.partIndex,
+            topic: item.topicTitle,
+            filePath: item.filePath,
+            commitSha: pushResult.commitSha,
+            commitUrl: pushResult.commitUrl,
+            commitDate: commitDate,
+          });
+        }
+
+        if (i < htmlPack.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 1000));
+        }
+      }
+
+      if (htmlCommitResults.length > 0) {
+        const mainHtmlItem = htmlPack[0];
+        await updateReadmeTracker(htmlConfig, {
+          date: today,
+          title: mainHtmlItem.topicTitle.replace(' (HTML)', ''),
+          language: 'HTML & CSS',
+          difficulty: 'Beginner',
+          filePath: mainHtmlItem.filePath,
+          commitUrl: htmlCommitResults[0].commitUrl,
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      commitsPushed: commitResults.length,
-      commits: commitResults,
-      message: `Successfully pushed ${commitResults.length} JavaScript mastery commits to GitHub!`,
+      javascriptCommits: jsCommitResults.length,
+      htmlCssCommits: htmlCommitResults.length,
+      totalCommitsPushed: jsCommitResults.length + htmlCommitResults.length,
+      commits: [...jsCommitResults, ...htmlCommitResults],
+      message: `Pushed ${jsCommitResults.length} JS commits and ${htmlCommitResults.length} HTML/CSS commits successfully!`,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error executing daily cron push:', error);
     return NextResponse.json(
-      {
-        error: `Unexpected error during cron run: ${message}`,
-      },
+      { error: `Unexpected error during cron run: ${message}` },
       { status: 500 }
     );
   }

@@ -300,18 +300,24 @@ ${tableRow}
  * Randomizes the start time during the day and spaces each commit by 15-40 minutes,
  * breaking any automated bot detection patterns on GitHub.
  */
-export function generateRandomHumanTimestamps(count: number, baseDate: Date = new Date()): string[] {
+export function generateRandomHumanTimestamps(
+  count: number,
+  baseDate: Date = new Date(),
+  session: 'day' | 'evening' = 'day'
+): string[] {
   const timestamps: string[] = [];
   
-  // Pick a realistic random hour between 10:00 and 20:00 (10 AM to 8 PM)
-  const randomHour = Math.floor(Math.random() * 11) + 10;
+  // Day session (e.g. JavaScript): 10:00 to 14:00 (10 AM to 2 PM)
+  // Evening session (e.g. HTML/CSS): 16:00 to 21:00 (4 PM to 9 PM)
+  const [minH, maxH] = session === 'evening' ? [16, 21] : [10, 14];
+  const randomHour = Math.floor(Math.random() * (maxH - minH + 1)) + minH;
   const randomMinute = Math.floor(Math.random() * 50);
   const randomSecond = Math.floor(Math.random() * 59);
 
   let current = new Date(baseDate);
   current.setHours(randomHour, randomMinute, randomSecond, 0);
 
-  // If the randomized time is ahead of current real time today, shift back a few hours
+  // If the randomized time is ahead of current real time today, shift back
   if (current.getTime() > Date.now()) {
     const hoursBack = Math.floor(Math.random() * 3) + 2;
     current = new Date(Date.now() - (hoursBack * 60 * 60 * 1000));
