@@ -99,7 +99,7 @@ export async function generateDailyJavaScriptPack(
   const pack: GeneratedCommitItem[] = [
     {
       partIndex: 1,
-      totalParts: 3,
+      totalParts: 4,
       filePath: `${folder}/01-core.js`,
       fileContent: roadmapItem.files.core,
       topicTitle: `${roadmapItem.topic} (Part 1: Core Concept)`,
@@ -111,7 +111,7 @@ export async function generateDailyJavaScriptPack(
     },
     {
       partIndex: 2,
-      totalParts: 3,
+      totalParts: 4,
       filePath: `${folder}/02-practical.js`,
       fileContent: roadmapItem.files.practical,
       topicTitle: `${roadmapItem.topic} (Part 2: Real-world Implementation)`,
@@ -123,7 +123,7 @@ export async function generateDailyJavaScriptPack(
     },
     {
       partIndex: 3,
-      totalParts: 3,
+      totalParts: 4,
       filePath: `${folder}/03-tests.js`,
       fileContent: roadmapItem.files.tests,
       topicTitle: `${roadmapItem.topic} (Part 3: Unit Tests & Edge Cases)`,
@@ -133,9 +133,49 @@ export async function generateDailyJavaScriptPack(
       commitMessage: `write tests for ${cleanSlugName}`,
       source: 'curriculum',
     },
+    {
+      partIndex: 4,
+      totalParts: 4,
+      filePath: `${folder}/04-notes.js`,
+      fileContent: `// Practice notes and summary for ${cleanSlugName}\n\n// Key takeaways:\n// 1. Keep functions pure and modular\n// 2. Encapsulate private state securely\n\nconsole.log('Completed practice for ${cleanSlugName}');\n`,
+      topicTitle: `${roadmapItem.topic} (Part 4: Summary Notes)`,
+      category: roadmapItem.category,
+      difficulty: roadmapItem.difficulty,
+      language: 'javascript',
+      commitMessage: `add practice notes for ${cleanSlugName}`,
+      source: 'curriculum',
+    },
   ];
 
   return pack.slice(0, commitsCount);
+}
+
+/**
+ * Computes a realistic, randomized commit distribution for the day.
+ * Returns { jsCount, htmlCount, totalCount } between min (2) and max (8).
+ */
+export function getRandomDailyCommitCounts(minTotal: number = 2, maxTotal: number = 8) {
+  const total = Math.floor(Math.random() * (maxTotal - minTotal + 1)) + minTotal;
+  
+  const half = Math.floor(total / 2);
+  const remainder = total % 2;
+  
+  let jsCount = half + (Math.random() > 0.5 ? remainder : 0);
+  let htmlCount = total - jsCount;
+
+  // Ensure at least 1 commit per active repository
+  if (jsCount < 1) { jsCount = 1; htmlCount = total - 1; }
+  if (htmlCount < 1) { htmlCount = 1; jsCount = total - 1; }
+
+  // Clamp to max 4 files per repo per day
+  jsCount = Math.min(4, Math.max(1, jsCount));
+  htmlCount = Math.min(4, Math.max(1, htmlCount));
+
+  return {
+    jsCount,
+    htmlCount,
+    totalCount: jsCount + htmlCount,
+  };
 }
 
 /**

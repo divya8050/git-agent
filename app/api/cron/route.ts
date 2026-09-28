@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pushFileToGitHub, updateReadmeTracker, generateRandomHumanTimestamps } from '@/lib/github';
-import { generateDailyJavaScriptPack } from '@/lib/generator';
+import { generateDailyJavaScriptPack, getRandomDailyCommitCounts } from '@/lib/generator';
 import { generateDailyHtmlCssPack } from '@/lib/html-css-generator';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,10 @@ export async function GET(request: NextRequest) {
     const branch = process.env.GITHUB_BRANCH || 'main';
     const authorName = process.env.GIT_AUTHOR_NAME || 'Daily Practice Agent';
     const authorEmail = process.env.GIT_AUTHOR_EMAIL;
-    const commitsCount = parseInt(process.env.COMMITS_PER_DAY || '3', 10);
+    const minCommits = parseInt(process.env.MIN_COMMITS_PER_DAY || '2', 10);
+    const maxCommits = parseInt(process.env.MAX_COMMITS_PER_DAY || '8', 10);
+
+    const { jsCount, htmlCount } = getRandomDailyCommitCounts(minCommits, maxCommits);
 
     if (!token || !owner || !repo) {
       return NextResponse.json(
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
     // =========================================================================
     // 1. TRACK 1: JAVASCRIPT MASTERY (Day Session Timestamps)
     // =========================================================================
-    const jsPack = await generateDailyJavaScriptPack(commitsCount);
+    const jsPack = await generateDailyJavaScriptPack(jsCount);
     const jsCommitResults = [];
     const jsTimestamps = generateRandomHumanTimestamps(jsPack.length, new Date(), 'day');
 
@@ -115,7 +118,7 @@ export async function GET(request: NextRequest) {
         authorEmail,
       };
 
-      const htmlPack = await generateDailyHtmlCssPack();
+      const htmlPack = await generateDailyHtmlCssPack(htmlCount);
       const htmlTimestamps = generateRandomHumanTimestamps(htmlPack.length, new Date(), 'evening');
 
       for (let i = 0; i < htmlPack.length; i++) {

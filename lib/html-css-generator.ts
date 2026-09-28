@@ -16,6 +16,7 @@ export interface GeneratedHtmlCssItem {
  * Generates daily HTML and CSS practice files.
  */
 export async function generateDailyHtmlCssPack(
+  commitsCount: number = 2,
   customTopic?: string
 ): Promise<GeneratedHtmlCssItem[]> {
   const dayNumber = getCurrentRoadmapDay();
@@ -34,11 +35,12 @@ export async function generateDailyHtmlCssPack(
         apiKey: geminiApiKey,
         dayNumber,
         dateStr,
+        commitsCount,
         customTopic,
       });
 
       if (aiResult && aiResult.length > 0) {
-        return aiResult;
+        return aiResult.slice(0, commitsCount);
       }
     } catch (err) {
       console.warn('Gemini HTML/CSS generation failed, falling back to curriculum:', err);
@@ -50,10 +52,10 @@ export async function generateDailyHtmlCssPack(
   const folder = `html-css-mastery/${item.stageFolder}/day-${String(dayNumber).padStart(2, '0')}-${item.slug}`;
   const cleanName = item.slug.replace(/^\d+-/, '').replace(/-/g, ' ');
 
-  return [
+  const pack: GeneratedHtmlCssItem[] = [
     {
       partIndex: 1,
-      totalParts: 2,
+      totalParts: 4,
       filePath: `${folder}/index.html`,
       fileContent: item.files.html,
       topicTitle: `${item.topic} (HTML Markup)`,
@@ -63,7 +65,7 @@ export async function generateDailyHtmlCssPack(
     },
     {
       partIndex: 2,
-      totalParts: 2,
+      totalParts: 4,
       filePath: `${folder}/styles.css`,
       fileContent: item.files.css,
       topicTitle: `${item.topic} (CSS Styling)`,
@@ -71,13 +73,36 @@ export async function generateDailyHtmlCssPack(
       commitMessage: `add css styling for ${cleanName}`,
       source: 'curriculum',
     },
+    {
+      partIndex: 3,
+      totalParts: 4,
+      filePath: `${folder}/responsive.css`,
+      fileContent: `/* Responsive styles for ${cleanName} */\n@media (max-width: 768px) {\n  body {\n    padding: 12px;\n  }\n}\n`,
+      topicTitle: `${item.topic} (Responsive Media Queries)`,
+      language: 'css',
+      commitMessage: `add mobile responsive layout for ${cleanName}`,
+      source: 'curriculum',
+    },
+    {
+      partIndex: 4,
+      totalParts: 4,
+      filePath: `${folder}/theme.css`,
+      fileContent: `/* Theme variables for ${cleanName} */\n:root {\n  --primary-color: #2563eb;\n  --background-color: #f8fafc;\n  --text-color: #1e293b;\n}\n`,
+      topicTitle: `${item.topic} (Theme Variables)`,
+      language: 'css',
+      commitMessage: `add theme variables for ${cleanName}`,
+      source: 'curriculum',
+    },
   ];
+
+  return pack.slice(0, commitsCount);
 }
 
 async function generateHtmlCssViaGemini(params: {
   apiKey: string;
   dayNumber: number;
   dateStr: string;
+  commitsCount?: number;
   customTopic?: string;
 }): Promise<GeneratedHtmlCssItem[] | null> {
   const { apiKey, dayNumber, dateStr, customTopic } = params;
