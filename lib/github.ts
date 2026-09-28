@@ -276,7 +276,7 @@ ${tableRow}
         config,
         'README.md',
         updatedContent,
-        `docs: update practice log for ${todayItem.date}`
+        `update notes and log for ${todayItem.date}`
       );
     }
   } catch (err) {
