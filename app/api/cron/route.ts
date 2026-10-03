@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const repo = process.env.GITHUB_REPO;
     const htmlCssRepo = process.env.HTML_CSS_REPO || 'html-css';
     const branch = process.env.GITHUB_BRANCH || 'main';
-    const authorName = process.env.GIT_AUTHOR_NAME || 'Daily Practice Agent';
+    const authorName = process.env.GIT_AUTHOR_NAME || 'divya adsare';
     const authorEmail = process.env.GIT_AUTHOR_EMAIL;
     const minCommits = parseInt(process.env.MIN_COMMITS_PER_DAY || '2', 10);
     const maxCommits = parseInt(process.env.MAX_COMMITS_PER_DAY || '8', 10);

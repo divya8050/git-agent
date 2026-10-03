@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "GitStreak Agent - Automated GitHub Daily Practice & Green Streak Bot",
-  description: "Automated daily code practice commits deployed on Vercel to maintain your GitHub streak with meaningful code solutions.",
+  title: "GitStreak - Daily Code Practice & Study Tracker",
+  description: "Personal daily code practice and learning roadmap tracker for modern JavaScript and HTML/CSS.",
 };
 
 export default function RootLayout({

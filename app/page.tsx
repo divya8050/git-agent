@@ -272,7 +272,7 @@ MAX_COMMITS_PER_DAY=8`;
                 <span>180-Day Dual Learning Streak Active</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-                Automated GitHub Daily Practice
+                Daily Code Practice &amp; Study Tracker
               </h1>
               <p className="text-slate-400 text-sm max-w-2xl">
                 Parallel learning across JavaScript and HTML5/CSS with randomized schedules (2 to 8 commits/day)
@@ -665,7 +665,7 @@ MAX_COMMITS_PER_DAY=8`;
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Attribution verified for your GitHub account green streak.
+                      Attribution verified for your personal GitHub account.
                     </p>
                   </div>
 
@@ -831,9 +831,9 @@ MAX_COMMITS_PER_DAY=8`;
           <div className="space-y-6">
             <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-6 space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white">How to Deploy and Automate on Vercel</h2>
+                <h2 className="text-xl font-bold text-white">How to Deploy to Vercel</h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Follow these 4 simple steps to have the agent push code every single day for free.
+                  Follow these 4 simple steps to run your daily practice companion on Vercel.
                 </p>
               </div>
 
@@ -896,10 +896,10 @@ MAX_COMMITS_PER_DAY=8`;
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-amber-300">
-                    Verified GitHub Email for Green Streak
+                    Verified GitHub Email Attribution
                   </h3>
                   <p className="text-xs text-slate-400">
-                    GitHub will ONLY count commits towards your green streak if the author email matches your GitHub account. Check{' '}
+                    GitHub attributes commits to your developer profile when the author email matches your registered GitHub account. Check{' '}
                     <a
                       href="https://github.com/settings/emails"
                       target="_blank"
@@ -908,7 +908,7 @@ MAX_COMMITS_PER_DAY=8`;
                     >
                       github.com/settings/emails
                     </a>{' '}
-                    and copy your primary or noreply email address into <code className="text-amber-400">GIT_AUTHOR_EMAIL</code>.
+                    and copy your primary email address into <code className="text-amber-400">GIT_AUTHOR_EMAIL</code>.
                   </p>
                 </div>
               </div>
@@ -921,7 +921,7 @@ MAX_COMMITS_PER_DAY=8`;
                 <div className="space-y-3 w-full">
                   <h3 className="text-sm font-semibold text-white">Deploy to Vercel &amp; Add Environment Variables</h3>
                   <p className="text-xs text-slate-400">
-                    Deploy this project (<code className="text-emerald-400">divya8050/git-agent</code>) to Vercel.
+                    Deploy this project to Vercel.
                     In your Vercel Project Settings &gt; Environment Variables, paste the following:
                   </p>
 
@@ -931,7 +931,7 @@ MAX_COMMITS_PER_DAY=8`;
                       <p><span className="text-emerald-400">GITHUB_OWNER</span>=divya8050</p>
                       <p><span className="text-emerald-400">GITHUB_REPO</span>=javascript</p>
                       <p><span className="text-emerald-400">HTML_CSS_REPO</span>=html-css</p>
-                      <p><span className="text-emerald-400">GIT_AUTHOR_NAME</span>=&quot;Divya&quot;</p>
+                      <p><span className="text-emerald-400">GIT_AUTHOR_NAME</span>=&quot;divya adsare&quot;</p>
                       <p><span className="text-amber-400">GIT_AUTHOR_EMAIL</span>=&quot;your-verified-github-email@example.com&quot;</p>
                       <p><span className="text-slate-400">CRON_SECRET</span>=super_secret_cron_key_99</p>
                       <p><span className="text-slate-400">MIN_COMMITS_PER_DAY</span>=2</p>
@@ -958,7 +958,7 @@ MAX_COMMITS_PER_DAY=8`;
                   </div>
 
                   <p className="text-xs text-slate-400">
-                    Once deployed, Vercel will automatically run <code className="text-emerald-400">/api/cron</code> every day at 10:00 UTC, pushing daily practice solutions to both repositories and keeping your streak green forever!
+                    Once deployed, Vercel will trigger the daily cron schedule in <code className="text-emerald-400">vercel.json</code>, maintaining your daily learning exercises.
                   </p>
                 </div>
               </div>
@@ -969,7 +969,7 @@ MAX_COMMITS_PER_DAY=8`;
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 mt-12 py-6 text-center text-xs text-slate-500">
-        <p>GitStreak Agent &bull; Dual Track JavaScript &amp; HTML/CSS &bull; Never miss a daily commit</p>
+        <p>GitStreak &bull; Dual Track JavaScript &amp; HTML/CSS Practice Tracker</p>
       </footer>
     </div>
   );

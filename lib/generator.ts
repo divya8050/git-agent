@@ -25,8 +25,7 @@ export interface GeneratedCodeResult {
 }
 
 /**
- * Strips robotic tags, prefixes, and brackets to make commit messages
- * look 100% naturally typed by a software engineer in their terminal.
+ * Normalizes commit message format to clean, concise phrases.
  */
 export function formatHumanCommitMessage(raw: string | undefined, fallback: string): string {
   if (!raw) return fallback;
@@ -221,9 +220,8 @@ STRICT CODING STYLE GUIDELINES:
 - The code must NEVER look AI-generated or copy-pasted from an online tutorial.
 - Clean, readable, idiomatic JavaScript with natural variable and function names.
 
-COMMIT MESSAGE GUIDELINES (VERY IMPORTANT):
-- Each commit message MUST look 100% manually typed by a human in their terminal.
-- Write natural, casual, concise phrases (all lowercase or simple sentence style, 3 to 6 words).
+COMMIT MESSAGE GUIDELINES:
+- Write natural, concise phrases (all lowercase or simple sentence style, 3 to 6 words).
 - Examples of good commit messages:
   - "practice variables and basic types"
   - "add user profile helper function"

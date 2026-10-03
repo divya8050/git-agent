@@ -118,7 +118,7 @@ STRICT CODING STYLE GUIDELINES:
 - Keep comments strictly limited to natural 1-line notes (<!-- ... --> in HTML, /* ... */ in CSS).
 - Clean class names (BEM or natural lowercase kebab-case).
 
-COMMIT MESSAGE GUIDELINES (MUST LOOK MANUALLY TYPED):
+COMMIT MESSAGE GUIDELINES:
 - Casual, natural, lowercase terminal commit messages (3 to 6 words).
 - e.g. "create markup for contact form", "add flexbox styles for header and form", "style responsive navigation bar"
 - NEVER use prefixes like "feat:", "test:", "[Part 1/2]", "Day 1 -".

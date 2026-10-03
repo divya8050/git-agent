@@ -35,7 +35,7 @@ export async function verifyGitHubAccess(config: GitHubConfig) {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'GitHub-Daily-Streak-Agent',
+        'User-Agent': 'Personal-Practice-Workspace',
       },
       cache: 'no-store',
     });
@@ -55,7 +55,7 @@ export async function verifyGitHubAccess(config: GitHubConfig) {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'GitHub-Daily-Streak-Agent',
+        'User-Agent': 'Personal-Practice-Workspace',
       },
       cache: 'no-store',
     });
@@ -111,7 +111,7 @@ export async function pushFileToGitHub(
     owner,
     repo,
     branch = 'main',
-    authorName = 'Daily Practice Agent',
+    authorName = process.env.GIT_AUTHOR_NAME || 'divya adsare',
     authorEmail,
   } = config;
 
@@ -253,21 +253,15 @@ export async function updateReadmeTracker(
     let updatedContent = '';
     if (!currentContent || !currentContent.includes('## 📅 Practice History')) {
       // Create new initial README
-      updatedContent = `# 🚀 Daily Practice & Streak Repository
+      updatedContent = `# Daily Practice & Learning Notes
 
-![Daily Streak](https://img.shields.io/badge/Daily_Streak-Active-brightgreen?style=for-the-badge&logo=github)
-![Practices](https://img.shields.io/badge/Practice_Agent-Automated-blue?style=for-the-badge&logo=vercel)
-
-Automated daily coding problem solutions, algorithm implementations, and software engineering notes pushed daily by the **Vercel Daily Push Agent**.
+Personal repository for daily code practice, algorithmic problem solving, design patterns, and engineering notes.
 
 ## 📅 Practice History
 
 | Date | Topic / Problem | Language | Difficulty | Link |
 | :--- | :--- | :--- | :--- | :--- |
 ${tableRow}
-
----
-*Maintained and auto-committed daily by [GitHub Daily Streak Agent](https://github.com/${owner}/${repo}).*
 `;
     } else {
       // Append row to existing table if not already added today
@@ -296,9 +290,8 @@ ${tableRow}
 }
 
 /**
- * Generates realistic, human-looking randomized timestamps for daily coding sessions.
- * Randomizes the start time during the day and spaces each commit by 15-40 minutes,
- * breaking any automated bot detection patterns on GitHub.
+ * Distributes practice commit timestamps throughout daily study sessions.
+ * Randomizes the start time during the day and spaces each commit by 15-40 minutes.
  */
 export function generateRandomHumanTimestamps(
   count: number,

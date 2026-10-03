@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const repo = clientRepo || process.env.GITHUB_REPO;
     const htmlCssRepo = process.env.HTML_CSS_REPO || 'html-css';
     const branch = process.env.GITHUB_BRANCH || 'main';
-    const authorName = process.env.GIT_AUTHOR_NAME || 'Daily Practice Agent';
+    const authorName = process.env.GIT_AUTHOR_NAME || 'divya adsare';
     const authorEmail = clientEmail || process.env.GIT_AUTHOR_EMAIL;
     const commitsCount = count ? parseInt(count, 10) : parseInt(process.env.COMMITS_PER_DAY || '3', 10);
 
