@@ -326,3 +326,231 @@ export function generateRandomHumanTimestamps(
 
   return timestamps;
 }
+
+export interface ContributionDay {
+  date: string;
+  contributionCount: number;
+  color: string;
+  weekday: number;
+}
+
+export interface ContributionCalendar {
+  totalContributions: number;
+  weeks: {
+    contributionDays: ContributionDay[];
+  }[];
+  todayCount: number;
+  todayDate: string;
+  currentStreak: number;
+}
+
+export interface RepositorySummary {
+  name: string;
+  fullName: string;
+  description: string | null;
+  htmlUrl: string;
+  language: string | null;
+  defaultBranch: string;
+  updatedAt: string;
+  isPrivate: boolean;
+  starsCount?: number;
+  forksCount?: number;
+}
+
+export interface CommitSummary {
+  sha: string;
+  shortSha: string;
+  message: string;
+  authorName: string;
+  authorEmail?: string;
+  date: string;
+  repo: string;
+  htmlUrl: string;
+}
+
+/**
+ * Fetches the user's authentic contribution calendar from GitHub GraphQL API.
+ */
+export async function fetchContributionCalendar(
+  token: string,
+  login: string
+): Promise<ContributionCalendar | null> {
+  try {
+    const query = `
+      query userContributions($login: String!) {
+        user(login: $login) {
+          contributionsCollection {
+            contributionCalendar {
+              totalContributions
+              weeks {
+                contributionDays {
+                  contributionCount
+                  date
+                  color
+                  weekday
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const res = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Personal-Practice-Workspace',
+      },
+      body: JSON.stringify({ query, variables: { login } }),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      console.warn(`GraphQL API returned status ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const calendar = data?.data?.user?.contributionsCollection?.contributionCalendar;
+    if (!calendar) return null;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    let todayCount = 0;
+    const allDays: ContributionDay[] = [];
+
+    calendar.weeks.forEach((w: { contributionDays: ContributionDay[] }) => {
+      w.contributionDays.forEach((d) => {
+        allDays.push(d);
+        if (d.date === todayStr) {
+          todayCount = d.contributionCount;
+        }
+      });
+    });
+
+    // Calculate current streak
+    let streak = 0;
+    // Walk backwards starting from today or yesterday
+    const todayIndex = allDays.findIndex((d) => d.date === todayStr);
+    const startIndex = todayIndex !== -1 ? todayIndex : allDays.length - 1;
+
+    for (let i = startIndex; i >= 0; i--) {
+      if (allDays[i].contributionCount > 0) {
+        streak++;
+      } else if (i === startIndex && allDays[i].contributionCount === 0) {
+        // Today has 0 so far, check if yesterday was active
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      totalContributions: calendar.totalContributions,
+      weeks: calendar.weeks,
+      todayCount,
+      todayDate: todayStr,
+      currentStreak: streak,
+    };
+  } catch (err) {
+    console.warn('Failed to fetch contribution calendar:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetches all repositories for the authenticated user and retrieves their recent commits.
+ */
+export async function fetchUserRepositoriesAndCommits(
+  token: string,
+  login: string
+): Promise<{ repos: RepositorySummary[]; commits: CommitSummary[] }> {
+  try {
+    const reposRes = await fetch(
+      'https://api.github.com/user/repos?sort=updated&per_page=30&affiliation=owner',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'User-Agent': 'Personal-Practice-Workspace',
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!reposRes.ok) {
+      return { repos: [], commits: [] };
+    }
+
+    const reposData = await reposRes.json();
+    if (!Array.isArray(reposData)) {
+      return { repos: [], commits: [] };
+    }
+
+    const repos: RepositorySummary[] = reposData.map((r) => ({
+      name: r.name,
+      fullName: r.full_name,
+      description: r.description,
+      htmlUrl: r.html_url,
+      language: r.language,
+      defaultBranch: r.default_branch,
+      updatedAt: r.updated_at,
+      isPrivate: r.private,
+      starsCount: r.stargazers_count,
+      forksCount: r.forks_count,
+    }));
+
+    // Fetch recent commits across the user's top repositories (up to 8 repos, 10 commits each)
+    const commits: CommitSummary[] = [];
+    const targetRepos = repos.slice(0, 8);
+
+    await Promise.all(
+      targetRepos.map(async (repo) => {
+        try {
+          const comRes = await fetch(
+            `https://api.github.com/repos/${login}/${repo.name}/commits?per_page=10`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github.v3+json',
+                'User-Agent': 'Personal-Practice-Workspace',
+              },
+              cache: 'no-store',
+            }
+          );
+
+          if (comRes.ok) {
+            const coms = await comRes.json();
+            if (Array.isArray(coms)) {
+              coms.forEach((c) => {
+                commits.push({
+                  sha: c.sha,
+                  shortSha: c.sha.slice(0, 7),
+                  message: c.commit?.message?.split('\n')[0] || 'Commit update',
+                  authorName: c.commit?.author?.name || c.author?.login || 'Developer',
+                  authorEmail: c.commit?.author?.email,
+                  date: c.commit?.author?.date || c.commit?.committer?.date || '',
+                  repo: repo.name,
+                  htmlUrl: c.html_url,
+                });
+              });
+            }
+          }
+        } catch {
+          // ignore single repo error
+        }
+      })
+    );
+
+    // Sort commits newest first
+    commits.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    return { repos, commits };
+  } catch (err) {
+    console.warn('Failed to fetch repositories and commits:', err);
+    return { repos: [], commits: [] };
+  }
+}

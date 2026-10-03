@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { verifyGitHubAccess } from '@/lib/github';
+import {
+  verifyGitHubAccess,
+  fetchContributionCalendar,
+  fetchUserRepositoriesAndCommits,
+  ContributionCalendar,
+  RepositorySummary,
+  CommitSummary,
+} from '@/lib/github';
 import { getCurrentRoadmapDay } from '@/lib/generator';
 import { getRoadmapDay } from '@/lib/js-roadmap';
 import { getHtmlCssRoadmapDay } from '@/lib/html-css-roadmap';
@@ -57,17 +64,26 @@ export async function GET() {
     message: 'GitHub credentials not fully configured in environment.',
   };
 
-  if (token && owner && repo) {
-    const check = await verifyGitHubAccess({
-      token,
-      owner,
-      repo,
-      authorEmail,
-    });
+  let calendarData: ContributionCalendar | null = null;
+  let allRepos: RepositorySummary[] = [];
+  let recentCommits: CommitSummary[] = [];
+
+  if (token && owner) {
+    const [check, calData, reposCommits] = await Promise.all([
+      repo
+        ? verifyGitHubAccess({ token, owner, repo, authorEmail })
+        : Promise.resolve({ valid: false, error: 'No repo configured' }),
+      fetchContributionCalendar(token, owner),
+      fetchUserRepositoriesAndCommits(token, owner),
+    ]);
+
     connectionStatus = {
       checked: true,
       ...check,
     };
+    calendarData = calData;
+    allRepos = reposCommits.repos;
+    recentCommits = reposCommits.commits;
   }
 
   const dayNumber = getCurrentRoadmapDay();
@@ -80,6 +96,9 @@ export async function GET() {
     environment: envConfigured,
     github: connectionStatus,
     dayNumber,
+    contributions: calendarData,
+    repositories: allRepos,
+    recentCommits: recentCommits,
     tracks: {
       javascript: {
         repo: repo || 'javascript',
