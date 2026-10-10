@@ -16,7 +16,22 @@ export async function POST(request: NextRequest) {
       clientRepo,
       clientEmail,
       count,
+      // account selector — defaults to 'divya' to preserve existing behaviour
+      account = 'divya',
     } = body;
+
+    // Redirect Sanket requests to the dedicated endpoint — keeps concerns isolated
+    if (account === 'sanket') {
+      return NextResponse.json(
+        {
+          error:
+            'To trigger Sanket\'s job, POST to /api/push-sanket instead. ' +
+            'The /api/push endpoint is reserved for Divya\'s account (backward compatible).',
+          redirectTo: '/api/push-sanket',
+        },
+        { status: 400 }
+      );
+    }
 
     const token = clientToken || process.env.GITHUB_TOKEN;
     const owner = clientOwner || process.env.GITHUB_OWNER;
