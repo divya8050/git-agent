@@ -189,12 +189,30 @@ function getLanguageColor(lang: string | null): string {
   }
 }
 
+// Minimal Sanket status type used by the dashboard
+interface SanketStatus {
+  status: string;
+  account: string;
+  github: { checked: boolean; valid: boolean; error?: string; message?: string; user?: { login: string; name: string; avatar_url: string } };
+  environment: { hasToken: boolean; hasOwner: boolean; hasRepo: boolean; owner: string | null; repo: string | null; authorName: string | null; configured: boolean };
+  dayNumber?: number;
+  todayTopic?: { title: string; category: string; difficulty: string; folder: string; slug: string };
+}
+
 export default function Dashboard() {
   const [statusData, setStatusData] = useState<SystemStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<boolean>(true);
   const [pushing, setPushing] = useState<boolean>(false);
   const [pushResult, setPushResult] = useState<PushResponse | null>(null);
   const [pushError, setPushError] = useState<string | null>(null);
+
+  // Sanket account — independent state, no shared state with Divya
+  const [sanketStatus, setSanketStatus] = useState<SanketStatus | null>(null);
+  const [loadingSanket, setLoadingSanket] = useState<boolean>(false);
+  const [pushingSanket, setPushingSanket] = useState<boolean>(false);
+  const [sanketPushResult, setSanketPushResult] = useState<PushResponse | null>(null);
+  const [sanketPushError, setSanketPushError] = useState<string | null>(null);
+  const [sanketCustomTopic, setSanketCustomTopic] = useState<string>('');
 
   // Navigation
   const [activeTab, setActiveTab] = useState<'dashboard' | 'repos' | 'commits' | 'preview' | 'setup'>('dashboard');
@@ -237,8 +255,48 @@ export default function Dashboard() {
     }
   };
 
+  const fetchSanketStatus = async () => {
+    setLoadingSanket(true);
+    try {
+      const res = await fetch('/api/status-sanket');
+      if (res.ok) {
+        const data = await res.json();
+        setSanketStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to load Sanket status:', err);
+    } finally {
+      setLoadingSanket(false);
+    }
+  };
+
+  const handleSanketPush = async () => {
+    setPushingSanket(true);
+    setSanketPushResult(null);
+    setSanketPushError(null);
+    try {
+      const res = await fetch('/api/push-sanket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customTopic: sanketCustomTopic.trim() || undefined, count: 2 }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSanketPushError(data.error || 'Sanket push failed.');
+      } else {
+        setSanketPushResult(data);
+        fetchSanketStatus();
+      }
+    } catch (err: unknown) {
+      setSanketPushError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setPushingSanket(false);
+    }
+  };
+
   useEffect(() => {
     fetchStatus();
+    fetchSanketStatus();
   }, []);
 
   // Update preview file selection when switching tracks
@@ -1054,6 +1112,142 @@ MAX_COMMITS_PER_DAY=8`;
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* ── Sanket Account Panel ──────────────────────────────── */}
+            <div className="rounded-xl border border-violet-500/30 bg-gradient-to-br from-slate-900 via-[#0f0d1a] to-slate-900 p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 bg-violet-500/10 rounded-lg text-violet-400">
+                    <Code2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-white text-base">
+                      Sanket&#39;s Account — System Design Track
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Independent second account · sanket8050/system-design
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchSanketStatus}
+                  title="Refresh Sanket status"
+                  className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingSanket ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {/* Config status */}
+              {sanketStatus ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-slate-300 font-mono">SANKET_TOKEN</span>
+                    {sanketStatus.environment.hasToken ? (
+                      <span className="flex items-center space-x-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /><span>Set</span></span>
+                    ) : (
+                      <span className="flex items-center space-x-1 text-rose-400"><AlertCircle className="w-3.5 h-3.5" /><span>Missing</span></span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-slate-300 font-mono">TARGET_REPO</span>
+                    <span className="text-violet-300 font-mono">
+                      {sanketStatus.environment.owner}/{sanketStatus.environment.repo}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-slate-300 font-mono">STATUS</span>
+                    {sanketStatus.environment.configured ? (
+                      <span className="text-emerald-400 font-mono">Active</span>
+                    ) : (
+                      <span className="text-amber-400 font-mono">Needs Setup</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 font-mono p-3 bg-slate-950 rounded-lg border border-slate-800">
+                  Loading Sanket account status...
+                </div>
+              )}
+
+              {/* Today&#39;s planned topic */}
+              {sanketStatus?.todayTopic && (
+                <div className="p-4 rounded-lg bg-slate-950/80 border border-violet-500/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-violet-400 font-mono">
+                      Today&#39;s Topic · Day #{sanketStatus.dayNumber}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20 font-mono">
+                      {sanketStatus.todayTopic.difficulty}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white">{sanketStatus.todayTopic.title}</h4>
+                  <p className="text-xs text-slate-400">
+                    Category: <code className="text-violet-300">{sanketStatus.todayTopic.category}</code>
+                    {' · '}Folder: <code className="text-slate-300">{sanketStatus.todayTopic.folder}/{sanketStatus.todayTopic.slug}</code>
+                  </p>
+                </div>
+              )}
+
+              {/* Manual push for Sanket */}
+              {sanketStatus?.environment.configured ? (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                      Custom Topic (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. consistent hashing, JWT refresh tokens"
+                      value={sanketCustomTopic}
+                      onChange={(e) => setSanketCustomTopic(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <button
+                      id="sanket-push-btn"
+                      onClick={handleSanketPush}
+                      disabled={pushingSanket}
+                      className="px-5 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs flex items-center space-x-2 transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {pushingSanket ? (
+                        <><RefreshCw className="w-4 h-4 animate-spin" /><span>Pushing Sanket...</span></>
+                      ) : (
+                        <><GitCommit className="w-4 h-4" /><span>Push Sanket&#39;s Commits Now</span></>
+                      )}
+                    </button>
+                    <span className="text-[11px] text-slate-400">
+                      → <code className="text-violet-300">sanket8050/system-design</code> (protected endpoint)
+                    </span>
+                  </div>
+
+                  {sanketPushError && (
+                    <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start space-x-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-rose-400" />
+                      <span>{sanketPushError}</span>
+                    </div>
+                  )}
+
+                  {sanketPushResult && (
+                    <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-violet-400" />
+                        <span className="font-semibold text-white">Sanket push successful!</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 bg-violet-500/20 rounded">
+                          {(sanketPushResult as unknown as { totalCommitsPushed: number }).totalCommitsPushed} commits
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-amber-300 space-y-1">
+                  <p className="font-semibold">Sanket&#39;s account is not yet configured.</p>
+                  <p className="text-slate-400">Add <code className="text-amber-300">SANKET_GITHUB_TOKEN</code>, <code className="text-amber-300">SANKET_GITHUB_OWNER</code>, and <code className="text-amber-300">SANKET_GITHUB_REPO</code> to your Vercel environment variables to activate this account.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
