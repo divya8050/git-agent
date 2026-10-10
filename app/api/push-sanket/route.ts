@@ -7,26 +7,13 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/push-sanket
  *
- * Manual push for Sanket's account only.
- * Requires CRON_SECRET as a Bearer token (Authorization header) or ?secret= query param.
+ * Manual push for Sanket's account only — called from the dashboard UI.
+ * No auth required (dashboard-facing endpoint; cron auth lives in /api/cron).
  *
  * Body (optional JSON):
  *   { "count": 2, "customTopic": "consistent hashing" }
  */
 export async function POST(request: NextRequest) {
-  // ── Auth ──────────────────────────────────────────────────
-  const authHeader = request.headers.get('authorization');
-  const urlObj = request.nextUrl || new URL(request.url, 'http://localhost');
-  const secretQuery = urlObj.searchParams.get('secret');
-  const expectedSecret = process.env.CRON_SECRET;
-
-  if (expectedSecret) {
-    const isBearerValid = authHeader === `Bearer ${expectedSecret}`;
-    const isQueryValid = secretQuery === expectedSecret;
-    if (!isBearerValid && !isQueryValid) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or missing CRON_SECRET.' }, { status: 401 });
-    }
-  }
 
   // ── Config ────────────────────────────────────────────────
   const token = process.env.SANKET_GITHUB_TOKEN;
