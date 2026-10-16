@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
     // no body is fine
   }
   const customTopic = typeof body.customTopic === 'string' ? body.customTopic.trim() || undefined : undefined;
-  const commitsCount = body.count ? Math.min(8, Math.max(1, parseInt(String(body.count), 10))) : 2;
+  const minC = parseInt(process.env.SANKET_MIN_COMMITS_PER_DAY || '4', 10);
+  const maxC = parseInt(process.env.SANKET_MAX_COMMITS_PER_DAY || '9', 10);
+  const defaultCount = Math.floor(Math.random() * (maxC - minC + 1)) + minC;
+  const commitsCount = body.count ? Math.min(20, Math.max(1, parseInt(String(body.count), 10))) : defaultCount;
 
   const config = { token, owner, repo, branch, authorName, authorEmail };
   const today = new Date().toISOString().split('T')[0];

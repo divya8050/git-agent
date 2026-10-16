@@ -195,7 +195,7 @@ async function runSanketJob(today: string): Promise<JobResult> {
   }
 
   const total = Math.floor(Math.random() * (maxCommits - minCommits + 1)) + minCommits;
-  const commitsCount = Math.max(2, Math.min(8, total));
+  const commitsCount = Math.max(1, Math.min(20, total)); // clamp 1–20 safety only
 
   const config: GitHubConfig = { token, owner, repo, branch, authorName, authorEmail };
   const allCommits: CommitResult[] = [];

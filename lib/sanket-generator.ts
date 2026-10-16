@@ -3,7 +3,7 @@ import { generateRandomHumanTimestamps } from './github';
 
 export interface SanketCommitItem {
   partIndex: number;
-  totalParts: 2;
+  totalParts: number;
   filePath: string;
   fileContent: string;
   topicTitle: string;
@@ -52,42 +52,54 @@ export async function generateDailySanketPack(
 }
 
 function buildCurriculumPack(topic: SanketTopic, commitsCount: number): SanketCommitItem[] {
-  const isMainMarkdown = topic.files.main.trimStart().startsWith('#');
-  const isSecondaryMarkdown =
-    topic.files.secondary.trimStart().startsWith('#') ||
-    topic.files.secondary.trimStart().startsWith('//') === false &&
-    !topic.files.secondary.trimStart().startsWith('import') &&
-    !topic.files.secondary.trimStart().startsWith('export') &&
-    !topic.files.secondary.trimStart().startsWith('const') &&
-    !topic.files.secondary.trimStart().startsWith('class') &&
-    !topic.files.secondary.trimStart().startsWith('async');
+  const pack: SanketCommitItem[] = [];
+  let dayOffset = 0;
 
-  const pack: SanketCommitItem[] = [
-    {
-      partIndex: 1,
-      totalParts: 2,
-      filePath: `${topic.folder}/${topic.slug}/${isMainMarkdown ? 'notes.md' : 'notes.ts'}`,
-      fileContent: topic.files.main,
-      topicTitle: `${topic.title} — Notes`,
-      category: topic.category,
-      difficulty: topic.difficulty,
+  // Keep pulling 2-file chunks from consecutive topics until we have enough commits
+  while (pack.length < commitsCount) {
+    const t = getSanketTopicForDay(getSanketRoadmapDay() + dayOffset);
+    const isMainMarkdown = t.files.main.trimStart().startsWith('#');
+    const isSecondaryMarkdown =
+      t.files.secondary.trimStart().startsWith('#') ||
+      (!t.files.secondary.trimStart().startsWith('//') &&
+        !t.files.secondary.trimStart().startsWith('import') &&
+        !t.files.secondary.trimStart().startsWith('export') &&
+        !t.files.secondary.trimStart().startsWith('const') &&
+        !t.files.secondary.trimStart().startsWith('class') &&
+        !t.files.secondary.trimStart().startsWith('async'));
+
+    const slugSuffix = dayOffset > 0 ? `-part${dayOffset + 1}` : '';
+
+    pack.push({
+      partIndex: pack.length + 1,
+      totalParts: commitsCount,
+      filePath: `${t.folder}/${t.slug}${slugSuffix}/${isMainMarkdown ? 'notes.md' : 'notes.ts'}`,
+      fileContent: t.files.main,
+      topicTitle: `${t.title} — Notes`,
+      category: t.category,
+      difficulty: t.difficulty,
       language: isMainMarkdown ? 'markdown' : 'typescript',
-      commitMessage: topic.commitMessages[0],
+      commitMessage: t.commitMessages[0],
       source: 'curriculum',
-    },
-    {
-      partIndex: 2,
-      totalParts: 2,
-      filePath: `${topic.folder}/${topic.slug}/${isSecondaryMarkdown ? 'guide.md' : 'implementation.ts'}`,
-      fileContent: topic.files.secondary,
-      topicTitle: `${topic.title} — Implementation`,
-      category: topic.category,
-      difficulty: topic.difficulty,
-      language: isSecondaryMarkdown ? 'markdown' : 'typescript',
-      commitMessage: topic.commitMessages[1],
-      source: 'curriculum',
-    },
-  ];
+    });
+
+    if (pack.length < commitsCount) {
+      pack.push({
+        partIndex: pack.length + 1,
+        totalParts: commitsCount,
+        filePath: `${t.folder}/${t.slug}${slugSuffix}/${isSecondaryMarkdown ? 'guide.md' : 'implementation.ts'}`,
+        fileContent: t.files.secondary,
+        topicTitle: `${t.title} — Implementation`,
+        category: t.category,
+        difficulty: t.difficulty,
+        language: isSecondaryMarkdown ? 'markdown' : 'typescript',
+        commitMessage: t.commitMessages[1],
+        source: 'curriculum',
+      });
+    }
+
+    dayOffset++;
+  }
 
   return pack.slice(0, commitsCount);
 }
@@ -123,9 +135,8 @@ STYLE GUIDELINES:
 Choose ONE of these topic areas for today:
   system-design | full-stack | testing | devops
 
-Generate exactly 2 files:
-1. A notes/explanation file (markdown or TypeScript with inline comments)
-2. An implementation, simulation, or practical example file
+Generate exactly ${commitsCount} files — alternate between notes (.md) and implementation (.ts) files.
+For example if commitsCount=6: notes.md, implementation.ts, notes-2.md, implementation-2.ts, notes-3.md, implementation-3.ts
 
 Respond ONLY with this raw JSON (no markdown fences):
 {
@@ -136,15 +147,11 @@ Respond ONLY with this raw JSON (no markdown fences):
   "slug": "kebab-case-topic-slug",
   "files": [
     {
-      "fileName": "notes.md" or "notes.ts",
-      "commitMessage": "natural lowercase commit message 3-6 words",
-      "content": "file content here"
-    },
-    {
-      "fileName": "implementation.ts" or "implementation.md",
+      "fileName": "unique-filename.md or .ts",
       "commitMessage": "natural lowercase commit message 3-6 words",
       "content": "file content here"
     }
+    // repeat for all ${commitsCount} files
   ]
 }`;
 
@@ -185,7 +192,7 @@ Respond ONLY with this raw JSON (no markdown fences):
   };
 
   const parsed = safeParseJSON(rawText);
-  if (!parsed?.files || !Array.isArray(parsed.files) || parsed.files.length < 2) return null;
+  if (!parsed?.files || !Array.isArray(parsed.files) || parsed.files.length < 1) return null;
 
   interface GeminiFile {
     fileName?: string;
@@ -193,14 +200,17 @@ Respond ONLY with this raw JSON (no markdown fences):
     content: string;
   }
 
-  const result: SanketCommitItem[] = parsed.files.slice(0, commitsCount).map(
+  // If Gemini returned fewer files than requested, pad with curriculum items
+  const geminiFiles = parsed.files.slice(0, commitsCount);
+
+  const result: SanketCommitItem[] = geminiFiles.map(
     (fileObj: GeminiFile, index: number) => {
-      const fileName: string = fileObj.fileName || (index === 0 ? 'notes.md' : 'implementation.ts');
+      const fileName: string = fileObj.fileName || (index % 2 === 0 ? `notes-${Math.floor(index/2)+1}.md` : `implementation-${Math.floor(index/2)+1}.ts`);
       const ext = fileName.endsWith('.md') ? 'markdown' : 'typescript';
 
       return {
         partIndex: index + 1,
-        totalParts: 2 as const,
+        totalParts: commitsCount,
         filePath: `${parsed.folder || 'system-design'}/${parsed.slug || 'topic'}/${fileName}`,
         fileContent: fileObj.content || '',
         topicTitle: `${parsed.topicTitle || 'Engineering Practice'} (Part ${index + 1})`,
@@ -212,6 +222,16 @@ Respond ONLY with this raw JSON (no markdown fences):
       };
     }
   );
+
+  // If Gemini returned fewer than requested, fill the rest from curriculum
+  if (result.length < commitsCount) {
+    const { getSanketTopicForDay, getSanketRoadmapDay: getRD } = await import('./sanket-curriculum');
+    const fallbackTopic = getSanketTopicForDay(getRD() + 1);
+    const fallbackPack = buildCurriculumPack(fallbackTopic, commitsCount - result.length);
+    for (const item of fallbackPack) {
+      result.push({ ...item, partIndex: result.length + 1, totalParts: commitsCount });
+    }
+  }
 
   return result;
 }
